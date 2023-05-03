@@ -6,7 +6,7 @@ namespace TfcToChrTransformer.Mapping
 {
     public class Shop
     {
-        public List<ShopItem>? SHOPITEM { get; set; }
+        public List<SHOPITEM>? SHOP { get; set; }
 
 
         public static Shop ToMapping(XmlNode? rootNode)
@@ -14,13 +14,12 @@ namespace TfcToChrTransformer.Mapping
             Guard.NotNull(rootNode);
             var logger = NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
             var shop = new Shop();
-            var ListShopItems = new List<ShopItem>();
+            var ListShopItems = new List<SHOPITEM>();
             foreach (XmlNode? shopItemNode in rootNode?.SelectNodes("//SHOPITEM"))
             {
                 logger.Info($"Getting SHOPITEM with ITEM_ID = {shopItemNode?.SelectSingleNode("ITEM_ID")?.InnerText}");
 
-                var PARAMETERS = new Parameters();
-                var PARAMETER = new List<Parameter>();
+                var PARAMETERS = new List<Parameter>();
                 var paramNode = shopItemNode?.SelectSingleNode("PARAMETERS");
                 foreach (XmlNode parameter in paramNode?.SelectNodes("Parameter"))
                 {
@@ -30,12 +29,10 @@ namespace TfcToChrTransformer.Mapping
                         ParamUnit = parameter?.SelectSingleNode("ParamUnit")?.InnerText,
                         ParamValue = parameter?.SelectSingleNode("ParamValue")?.InnerText,
                     };
-                    PARAMETER.Add(param);
+                    PARAMETERS.Add(param);
                 }
 
-                PARAMETERS.PARAMETER = PARAMETER;
-
-                var shopItem = new ShopItem()
+                var SHOPITEM = new SHOPITEM()
                 {
                     ITEM_ID = shopItemNode?.SelectSingleNode("ITEM_ID")?.InnerText,
                     PRODUCTNAME = shopItemNode?.SelectSingleNode("PRODUCTNAME")?.InnerText,
@@ -64,9 +61,9 @@ namespace TfcToChrTransformer.Mapping
                     PRODUCTNO = shopItemNode?.SelectSingleNode("PRODUCTNO")?.InnerText,
                     DELIVERY_DATE = shopItemNode?.SelectSingleNode("DELIVERY_DATE")?.InnerText,
                 };
-                ListShopItems.Add(shopItem);
+                ListShopItems.Add(SHOPITEM);
             }
-            shop.SHOPITEM = ListShopItems;
+            shop.SHOP = ListShopItems;
             return shop;
         }
     }

@@ -7,7 +7,7 @@ using System.Xml.Serialization;
 
 namespace TfcToChrTransformer.Mapping
 {
-    public class ShopItem
+    public class SHOPITEM
     {
         public string? ITEM_ID { get; set; }
         public string? PRODUCTNAME { get; set; }
@@ -32,7 +32,7 @@ namespace TfcToChrTransformer.Mapping
         public string? ENERGY_LABEL { get; set; }
         public string? NEW_ITEM { get; set; }
         public string? ACTION { get; set; }
-        public Parameters? PARAMETERS { get; set; }
+        public List<Parameter>? PARAMETERS { get; set; }
         public string? EAN { get; set; }
         public string? PRODUCTNO { get; set; }
     }
