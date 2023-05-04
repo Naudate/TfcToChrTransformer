@@ -1,15 +1,6 @@
-﻿using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using NLog.Web;
-using System.IO;
-using System.Net.NetworkInformation;
-using System.Reflection.PortableExecutable;
-using System.Text;
+﻿using NLog.Web;
 using System.Xml;
 using System.Xml.Serialization;
-using TfcToChrTransformer.Mapping;
 
 namespace TfcToChrTransformer
 {
@@ -17,9 +8,10 @@ namespace TfcToChrTransformer
     {
         static void Main(string[] args)
         {
+            //Some ivalid characters....
+            string invalidCharacters = "~`!@#$%^&*()-+=[]\\{}|;:'\",./<>?\u00A0\u2019 ";
             // NLog: setup the logger first to catch all errors
             var logger = NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
-            XmlSerializer serializer = new XmlSerializer(typeof(Shop));
             try
             {
                 logger.Info("init main - application starting...");
@@ -28,7 +20,30 @@ namespace TfcToChrTransformer
                 var doc = new XmlDocument();
                 doc.Load(input);
                 var rootNode = doc.DocumentElement;
-                var mapping = Shop.ToMapping(rootNode);
+                var shop = rootNode?.SelectNodes("//SHOPITEM");
+                foreach (XmlNode? shopItemNode in shop)
+                {
+                    var paramNode = shopItemNode?.SelectSingleNode("PARAMETERS");
+                    foreach (XmlNode parameter in paramNode?.SelectNodes("Parameter"))
+                    {
+                        string paramName = parameter.SelectSingleNode("ParamName").InnerText.Trim();
+                        string paramValue = parameter.SelectSingleNode("ParamValue").InnerText.Trim();
+                        string paramUnit = parameter.SelectSingleNode("ParamUnit").InnerText.Trim();
+
+                        foreach (char invalidChar in invalidCharacters)
+                        {
+                            paramName = paramName.Replace(invalidChar, '_');
+                        }
+
+                        string elementName = paramName;
+
+                        XmlNode newElement = doc.CreateElement(elementName);
+                        newElement.InnerText = paramValue + paramUnit;
+
+                        parameter.ParentNode.ReplaceChild(newElement, parameter);
+                    }
+                }
+
                 // Construct the full path to the output folder
                 string outputFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "output");
 
@@ -38,19 +53,9 @@ namespace TfcToChrTransformer
                 // Construct the full path to the file
                 string fileName = Path.Combine(outputFolder, "output.xml");
 
-                if (File.Exists(fileName))
-                {
-                    logger.Info("File already exist");
-                    using TextWriter writer = new StreamWriter(fileName);
-                    serializer.Serialize(writer, mapping);
-                }
-                else
-                {
-                    using FileStream fs = File.Create(fileName);
-                    fs.Close();
-                    using TextWriter writer = new StreamWriter(fileName);
-                    serializer.Serialize(writer, mapping);
-                }
+                //Save the file
+                doc.Save(fileName);
+
 
                 logger.Info("File created !");
             }
