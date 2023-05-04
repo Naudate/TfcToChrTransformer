@@ -5,8 +5,6 @@ VisualStudioVersion = 17.5.33516.290
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TfcToChrTransformer", "src\TfcToChrTransformer\TfcToChrTransformer.csproj", "{44C5A5CC-222D-48C8-A4B3-6F96654F1327}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TfcToChrTransformer.Tests", "test\TfcToChrTransformer.Tests\TfcToChrTransformer.Tests.csproj", "{69934B58-074B-40AE-8925-FB7DFA7018B4}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +15,6 @@ Global
 		{44C5A5CC-222D-48C8-A4B3-6F96654F1327}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{44C5A5CC-222D-48C8-A4B3-6F96654F1327}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{44C5A5CC-222D-48C8-A4B3-6F96654F1327}.Release|Any CPU.Build.0 = Release|Any CPU
-		{69934B58-074B-40AE-8925-FB7DFA7018B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{69934B58-074B-40AE-8925-FB7DFA7018B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{69934B58-074B-40AE-8925-FB7DFA7018B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{69934B58-074B-40AE-8925-FB7DFA7018B4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
