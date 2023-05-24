@@ -62,7 +62,7 @@ namespace TfcToChrTransformer
                     // Add tag names as headers
                     foreach (string tagName in tagNames)
                     {
-                        headerRow.Append(program.CreateCell(tagName));
+                        headerRow.Append(CreateCell(tagName));
                     }
 
                     // Add the header row to the sheet data
@@ -73,24 +73,24 @@ namespace TfcToChrTransformer
                     var rootNode = xmlDocument.DocumentElement;
                     var shop = rootNode?.SelectNodes("//SHOPITEM");
                     uint count = 2;
-                    int countItem = 1;
                     foreach (XmlNode? shopItemNode in shop!)
                     {
                         Row valueRow = new Row() { RowIndex = count };
                         foreach (var item in list)
                         {
                             var index = tagNames.ToList().IndexOf(item);
-                            var columnName = GetColumnName(index);
+                            var columnName = GetColumnName(index + 1);
                             columnName += count;
+                            logger.Info(columnName);
                             valueRow.Append(program.CreateCellWithColumn(shopItemNode?.SelectSingleNode(item)?.InnerText!, columnName));
                         }
 
                         var paramNode = shopItemNode?.SelectSingleNode("PARAMETERS");
                         foreach (XmlNode parameter in paramNode?.SelectNodes("Parameter")!)
                         {
-                            string paramName = parameter.SelectSingleNode("ParamName")!.InnerText.Trim();
-                            string paramValue = parameter.SelectSingleNode("ParamValue")!.InnerText.Trim();
-                            string paramUnit = parameter.SelectSingleNode("ParamUnit")!.InnerText.Trim();
+                            string paramName = parameter.SelectSingleNode("ParamName")!.InnerText;
+                            string paramValue = parameter.SelectSingleNode("ParamValue")!.InnerText;
+                            string paramUnit = parameter.SelectSingleNode("ParamUnit")!.InnerText;
                             var index = tagNames.ToList().IndexOf(paramName);
                             var columnName = GetColumnName(index);
                             columnName += count;
@@ -161,7 +161,7 @@ namespace TfcToChrTransformer
             // Iterate over the elements and add the tag names to the set
             foreach (XmlNode element in elements)
             {
-                if (element.Name != "Parameter" && element.Name != "PARAMETERS" && element.Name != "ParamValue" && element.Name != "ParamUnit" && element.Name != "SHOP" && element.Name != "SHOPITEM")
+                if (element.Name != "Parameter" && element.Name != "PARAMETERS" && element.Name != "ParamValue" && element.Name != "ParamName" && element.Name != "ParamUnit" && element.Name != "SHOP" && element.Name != "SHOPITEM")
                 {
                     tagNames.Add(element.Name);
                 }
@@ -170,7 +170,7 @@ namespace TfcToChrTransformer
             return tagNames;
         }
 
-        private Cell CreateCell(string xmlTag)
+        private static Cell CreateCell(string xmlTag)
         {
             Cell cell = new Cell();
             cell.DataType = CellValues.String;
