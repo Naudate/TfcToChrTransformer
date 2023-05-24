@@ -1,9 +1,9 @@
 ﻿using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using NLog;
 using NLog.Web;
 using System.Xml;
-using System.Xml.Serialization;
 
 namespace TfcToChrTransformer
 {
@@ -11,8 +11,6 @@ namespace TfcToChrTransformer
     {
         static void Main(string[] args)
         {
-            //Some ivalid characters....
-            // string invalidCharacters = "~`!@#$%^&*()-+=[]\\{}|;:'\",./<>?\u00A0\u2019 ";
             // NLog: setup the logger first to catch all errors
             var logger = NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
             try
@@ -29,37 +27,85 @@ namespace TfcToChrTransformer
                 // Construct the full path to the file
                 string xlsxFilePath = Path.Combine(outputFolder, "output.xlsx");
 
-                // Create a new XLSX file
-                using (SpreadsheetDocument spreadsheetDocument = SpreadsheetDocument.Create(xlsxFilePath, SpreadsheetDocumentType.Workbook))
+                XmlDocument xmlDocument = new XmlDocument();
+                xmlDocument.Load(xmlFilePath);
+
+                var program = new Program();
+
+                // Get all distinct tag names from the XML document
+                HashSet<string> tagNames = program.GetDistinctTagNames(xmlDocument);
+
+                HashSet<string> list = program.GetDistinct(xmlDocument);
+
+                // Create the XLSX document
+                using (SpreadsheetDocument document = SpreadsheetDocument.Create(xlsxFilePath, SpreadsheetDocumentType.Workbook))
                 {
-                    // Add a WorkbookPart to the document
-                    WorkbookPart workbookPart = spreadsheetDocument.AddWorkbookPart();
+                    // Add a workbook part to the document
+                    WorkbookPart workbookPart = document.AddWorkbookPart();
                     workbookPart.Workbook = new Workbook();
 
-                    // Add a WorksheetPart to the WorkbookPart
+                    // Add a worksheet part to the workbook part
                     WorksheetPart worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
                     worksheetPart.Worksheet = new Worksheet(new SheetData());
 
-                    // Add a Sheets object to the Workbook
-                    Sheets sheets = spreadsheetDocument.WorkbookPart.Workbook.AppendChild(new Sheets());
-
-                    // Append a new sheet and associate it with the WorksheetPart
-                    Sheet sheet = new Sheet() { Id = spreadsheetDocument.WorkbookPart.GetIdOfPart(worksheetPart), SheetId = 1, Name = "Sheet1" };
+                    // Add the worksheet part to the workbook
+                    Sheets sheets = document.WorkbookPart!.Workbook.AppendChild(new Sheets());
+                    Sheet sheet = new Sheet() { Id = document.WorkbookPart.GetIdOfPart(worksheetPart), SheetId = 1, Name = "Sheet1" };
                     sheets.Append(sheet);
 
-                    XmlDocument xmlDocument = new XmlDocument();
-                    xmlDocument.Load(xmlFilePath);
+                    // Get the sheet data
+                    SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>()!;
 
-                    // Get the root element of the XML document
-                    XmlElement rootElement = xmlDocument.DocumentElement;
+                    // Create the header row with XML tags
+                    Row headerRow = new Row();
 
-                    // Traverse the XML and populate the spreadsheet
-                    TraverseXmlElement(worksheetPart.Worksheet.GetFirstChild<SheetData>(), rootElement);
+                    // Add tag names as headers
+                    foreach (string tagName in tagNames)
+                    {
+                        headerRow.Append(program.CreateCell(tagName));
+                    }
 
+                    // Add the header row to the sheet data
+                    sheetData.Append(headerRow);
 
-                    // Save and close the document
+                    logger.Info("Headers have been created");
+
+                    var rootNode = xmlDocument.DocumentElement;
+                    var shop = rootNode?.SelectNodes("//SHOPITEM");
+                    uint count = 2;
+                    int countItem = 1;
+                    foreach (XmlNode? shopItemNode in shop!)
+                    {
+                        Row valueRow = new Row() { RowIndex = count };
+                        foreach (var item in list)
+                        {
+                            var index = tagNames.ToList().IndexOf(item);
+                            var columnName = GetColumnName(index);
+                            columnName += count;
+                            valueRow.Append(program.CreateCellWithColumn(shopItemNode?.SelectSingleNode(item)?.InnerText!, columnName));
+                        }
+
+                        var paramNode = shopItemNode?.SelectSingleNode("PARAMETERS");
+                        foreach (XmlNode parameter in paramNode?.SelectNodes("Parameter")!)
+                        {
+                            string paramName = parameter.SelectSingleNode("ParamName")!.InnerText.Trim();
+                            string paramValue = parameter.SelectSingleNode("ParamValue")!.InnerText.Trim();
+                            string paramUnit = parameter.SelectSingleNode("ParamUnit")!.InnerText.Trim();
+                            var index = tagNames.ToList().IndexOf(paramName);
+                            var columnName = GetColumnName(index);
+                            columnName += count;
+                            valueRow.Append(program.CreateCellWithColumn($"{paramValue} {paramUnit}", columnName));
+                        }
+                        
+                        sheetData.Append(valueRow);
+                        count++;
+                    }                    
+
+                    // Save the workbook
                     workbookPart.Workbook.Save();
-                    spreadsheetDocument.Close();
+
+                    // Close the document
+                    document.Dispose();
                 }
 
 
@@ -74,35 +120,93 @@ namespace TfcToChrTransformer
             finally
             {
                 // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
-                NLog.LogManager.Shutdown();
+                LogManager.Shutdown();
             }
         }
 
-        // Recursive method to traverse XML elements and populate the spreadsheet
-        private static void TraverseXmlElement(SheetData sheetData, XmlElement xmlElement)
+        private HashSet<string> GetDistinctTagNames(XmlDocument xmlDocument)
         {
-            // Create a new row for each XML element
-            Row row = new Row();
+            HashSet<string> tagNames = new HashSet<string>();
 
-            // Create a new cell for the element's tag name
-            Cell tagCell = new Cell() { DataType = CellValues.String, CellValue = new CellValue(xmlElement.Name) };
-            row.Append(tagCell);
+            // Get all elements in the XML document
+            XmlNodeList elements = xmlDocument.GetElementsByTagName("*");
 
-            // Create a new cell for the element's inner text
-            Cell valueCell = new Cell() { DataType = CellValues.String, CellValue = new CellValue(xmlElement.InnerText) };
-            row.Append(valueCell);
-
-            // Append the row to the sheet data
-            sheetData.Append(row);
-
-            // Traverse child elements recursively
-            foreach (XmlNode childNode in xmlElement.ChildNodes)
+            // Iterate over the elements and add the tag names to the set
+            foreach (XmlNode element in elements)
             {
-                if (childNode is XmlElement childElement)
+                
+                if (element.Name.Equals("ParamName"))
                 {
-                    TraverseXmlElement(sheetData, childElement);
+                    tagNames.Add(element.InnerText);
+                }
+                else
+                {
+                    if (element.Name != "Parameter" && element.Name != "PARAMETERS" && element.Name != "ParamValue" && element.Name != "ParamUnit" && element.Name != "SHOP" && element.Name != "SHOPITEM")
+                    {
+                        tagNames.Add(element.Name);
+                    }
                 }
             }
+
+            return tagNames;
+        }
+
+        private HashSet<string> GetDistinct(XmlDocument xmlDocument)
+        {
+            HashSet<string> tagNames = new HashSet<string>();
+
+            // Get all elements in the XML document
+            XmlNodeList elements = xmlDocument.GetElementsByTagName("*");
+
+            // Iterate over the elements and add the tag names to the set
+            foreach (XmlNode element in elements)
+            {
+                if (element.Name != "Parameter" && element.Name != "PARAMETERS" && element.Name != "ParamValue" && element.Name != "ParamUnit" && element.Name != "SHOP" && element.Name != "SHOPITEM")
+                {
+                    tagNames.Add(element.Name);
+                }
+            }
+
+            return tagNames;
+        }
+
+        private Cell CreateCell(string xmlTag)
+        {
+            Cell cell = new Cell();
+            cell.DataType = CellValues.String;
+
+            // Add the XML tag as the value of the cell
+            cell.CellValue = new CellValue(xmlTag);
+
+            return cell;
+        }
+
+        // Helper method to get the column name from the column index
+        private static string GetColumnName(int columnIndex)
+        {
+            string columnName = string.Empty;
+            int dividend = columnIndex;
+
+            while (dividend > 0)
+            {
+                int modulo = (dividend - 1) % 26;
+                columnName = Convert.ToChar('A' + modulo) + columnName;
+                dividend = (dividend - modulo) / 26;
+            }
+
+            return columnName;
+        }
+
+        private Cell CreateCellWithColumn(string tagName, string columnName)
+        {
+            Cell cell = new Cell();
+            cell.DataType = CellValues.String;
+            cell.CellReference = columnName;
+
+            // Add the XML tag as the value of the cell
+            cell.CellValue = new CellValue(tagName);
+
+            return cell;
         }
     }
 }
